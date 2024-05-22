@@ -7,13 +7,14 @@ class Led {
   public:
     Led(Adafruit_NeoPixel *strip);
     void setColor(uint32_t color);
+    void showAlert(uint32_t color);
     void rainbowAnimation();
 
   private:
     Adafruit_NeoPixel *_ledStrip;
+    uint32_t calculateHalfBrightness(uint32_t originalColor);
     long _firstPixelHue;
-    int _brightness;
-    int _direction;
+    uint8_t _alertState;
 };
 
 #endif

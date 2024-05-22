@@ -1,6 +1,6 @@
 #include "Led.h"
 
-Led::Led(Adafruit_NeoPixel *strip) : _ledStrip(strip), _brightness(21), _direction(1), _firstPixelHue(0l) {
+Led::Led(Adafruit_NeoPixel *strip) : _ledStrip(strip), _firstPixelHue(0l) {
   _ledStrip->begin();
   _ledStrip->setBrightness(75);
   _ledStrip->fill(0xff0000);
@@ -10,6 +10,13 @@ Led::Led(Adafruit_NeoPixel *strip) : _ledStrip(strip), _brightness(21), _directi
 void Led::setColor(uint32_t color) {
   _ledStrip->fill(color);
   _ledStrip->show();
+}
+
+void Led::showAlert(uint32_t color) {
+  _ledStrip->fill(_alertState == 1 ? calculateHalfBrightness(color) : color);
+  _ledStrip->show();
+  
+  _alertState = _alertState == 1 ? 0 : 1;
 }
 
 void Led::rainbowAnimation() {
@@ -22,4 +29,16 @@ void Led::rainbowAnimation() {
 
   _ledStrip->show();
   _firstPixelHue += 250;
+}
+
+uint32_t Led::calculateHalfBrightness(uint32_t originalColor) {
+  uint8_t red = (originalColor >> 16) & 0xFF;
+  uint8_t green = (originalColor >> 8) & 0xFF;
+  uint8_t blue = originalColor & 0xFF;
+
+  uint8_t redHalf = red * 0.5;
+  uint8_t greenHalf = green * 0.5;
+  uint8_t blueHalf = blue * 0.5;
+
+  return (redHalf << 16) | (greenHalf << 8) | blueHalf;
 }

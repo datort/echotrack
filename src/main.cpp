@@ -15,16 +15,29 @@
 #define AP_NAME "EchoTrack Setup AP"
 #define AP_PASSWORD "12345678"
 
-#define WARN_LEVEL_MEDIUM 20
-#define WARN_LEVEL_CRITICAL 30
-
 #define CLOCK_ON_BY_DEFAULT true
 
+#define NUM_COLOR_ANIMATIONS 8
+uint8_t selectedColorAnimation = 0;
+uint32_t colorAnimations[NUM_COLOR_ANIMATIONS] = {
+  20000000,
+  0xff0000,
+  0x00ff00,
+  0x0000ff,
+  0xffff00,
+  0x00ffff,
+  0xff00ff,
+  0xffffff,
+};
 
 WiFiManager wm;
-char hostname[256];
+char hostname[128];
+char warnlevelOrange[6] = "25";
+char warnlevelRed[6] = "40";
+char ntpOffset[10] = "7200";
 auto timer = timer_create_default();
 bool saveConfig = false;
+bool setupMenuStarted = false;
 
 #define CLK D1
 #define DIO D2
@@ -46,7 +59,7 @@ OneButton btn = OneButton(
 Network network = Network();
 
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", 7200, 30000);
+NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", atoi(ntpOffset), 15000);
 
 bool showClock = CLOCK_ON_BY_DEFAULT;
 
@@ -66,6 +79,7 @@ bool updateDisplayTask(void *) {
     float responseTime = network.getResponseTime();
     if (responseTime > 0) {
       display.showNumber(responseTime, 1);
+      //display.setSegments(0b01010100, 0);
     }
   }
 
@@ -73,7 +87,18 @@ bool updateDisplayTask(void *) {
 }
 
 bool animationTask(void *) {
-  led.rainbowAnimation();
+  uint32_t animationToRun = colorAnimations[selectedColorAnimation];
+
+  if (!showClock && network.getResponseTime() > atoi(warnlevelOrange)) {
+    led.showAlert(network.getResponseTime() > atoi(warnlevelRed) ? 0xff0000 : 0xff4d00);
+    return true;
+  }
+
+  if (animationToRun == 20000000) {
+    led.rainbowAnimation();
+  } else {
+    led.setColor(animationToRun);
+  }
 
   return true;
 }
@@ -86,13 +111,44 @@ void toggleDisplayInfo() {
   showClock = !showClock;
 }
 
+void toggleColorScheme() {
+  if (selectedColorAnimation == NUM_COLOR_ANIMATIONS - 1) selectedColorAnimation = 0;
+  else selectedColorAnimation += 1;
+}
+
+void startTimers() {
+  timer.every(500, measureResponseTask);
+  timer.every(200, updateDisplayTask);
+  timer.every(100, animationTask);
+}
+
+void toggleSetupMenu() {
+  if (!setupMenuStarted) {
+    timer.cancel();
+
+    display.setScrolldelay(300);
+    display.showString(String("Go to " + WiFi.localIP().toString()).c_str());
+    display.showString(WiFi.localIP().toString().c_str());
+    display.showString("SETUP");
+
+    setupMenuStarted = true;
+    wm.startWebPortal();
+  } else {
+    wm.stopWebPortal();
+    setupMenuStarted = false;
+
+    display.showString("DONE");
+    startTimers();
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   pinMode(LED_BUILTIN, OUTPUT);
 
   display.begin();
   display.setBrightness(0);
-  display.showString("START");
+  display.showString("HELLO");
 
   if (LittleFS.begin()) {
     if (LittleFS.exists("/config.json")) {
@@ -110,21 +166,29 @@ void setup() {
         if (!deserializeError) {
           Serial.println("\nparsed json");
           strcpy(hostname, json["hostname"]);
-          Serial.print("Setting hostname to: ");
-          Serial.println(hostname);
+          strcpy(warnlevelOrange, json["warnlevelOrange"]);
+          strcpy(warnlevelRed, json["warnlevelRed"]);
+          strcpy(ntpOffset, json["ntpOffset"]);
         } else {
           Serial.println("failed to load json config");
         }
         configFile.close();
+
+        timeClient.setTimeOffset(atoi(ntpOffset));
       }
     }
   }
 
-  WiFiManagerParameter hostname_text("<p>The host to Ping check:</p>");
-  WiFiManagerParameter hostname_parameter("hostname", "IP/Host", "8.8.8.8", 50);
+  WiFiManagerParameter hostnameParameter("hostname", "IP/Host to ping check", "8.8.8.8", 50);
+  WiFiManagerParameter warnlevelOrangeParameter("warnlevelOrange", "Medium warning at (ms)", "25", 3);
+  WiFiManagerParameter warnlevelRedParameter("warnlevelRed", "Critical warning at (ms)", "40", 3);
+  WiFiManagerParameter ntpOffsetParameter("ntpOffset", "Timezone offset (CEST 7200)", "7200", 5);
 
-  wm.addParameter(&hostname_text);
-  wm.addParameter(&hostname_parameter);
+  wm.addParameter(&hostnameParameter);
+  wm.addParameter(&warnlevelOrangeParameter);
+  wm.addParameter(&warnlevelRedParameter);
+  wm.addParameter(&ntpOffsetParameter);
+
   wm.setClass("invert");
   wm.setScanDispPerc(true);
   wm.setSaveConfigCallback(saveConfigCallback);
@@ -141,11 +205,16 @@ void setup() {
   } else {
     Serial.println(saveConfig);
     if (saveConfig) {
-      Serial.println(hostname_parameter.getValue());
-      strcpy(hostname, hostname_parameter.getValue());
-      Serial.println(hostname);
+      strcpy(hostname, hostnameParameter.getValue());
+      strcpy(warnlevelOrange, warnlevelOrangeParameter.getValue());
+      strcpy(warnlevelRed, warnlevelRedParameter.getValue());
+      strcpy(ntpOffset, ntpOffsetParameter.getValue());
+
       JsonDocument json;
       json["hostname"] = hostname;
+      json["warnlevelOrange"] = warnlevelOrange;
+      json["warnlevelRed"] = warnlevelRed;
+      json["ntpOffset"] = ntpOffset;
       File configFile = LittleFS.open("/config.json", "w");
       serializeJson(json, configFile);
       configFile.close();
@@ -160,11 +229,11 @@ void setup() {
     timeClient.begin();
     timeClient.update();
 
-    timer.every(500, measureResponseTask);
-    timer.every(200, updateDisplayTask);
-    timer.every(50, animationTask);
-
     btn.attachClick(toggleDisplayInfo);
+    btn.attachDoubleClick(toggleColorScheme);
+    //btn.attachLongPressStop(toggleSetupMenu);
+
+    startTimers();
   }
 }
 

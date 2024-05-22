@@ -6,7 +6,7 @@
 #include <ESPping.h>
 #include "AsyncPing.h"
 
-#define PING_COUNT 5
+#define PING_COUNT 3
 #define PING_TIMEOUT 300
 
 class Network {
