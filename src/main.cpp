@@ -62,12 +62,32 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "europe.pool.ntp.org", atoi(ntpOffset), 15000);
 
 bool showClock = CLOCK_ON_BY_DEFAULT;
+uint8_t lastPingCount;
+float lastResponseTime;
 
 bool measureResponseTask(void *) {
   if (showClock) return true;
 
   network.updateResponseTime();
   return true;
+}
+
+int getPingAnimationByte() {
+  switch (network.getPingCount()) {
+    case 1:
+      return 0b00001000;
+
+    case 2: 
+      return 0b00001100;
+
+    case 3: 
+      return 0b01001100;
+
+    case 4: 
+      return 0b01011100;
+  }
+
+  return 0b00000000;
 }
 
 bool updateDisplayTask(void *) {
@@ -78,8 +98,15 @@ bool updateDisplayTask(void *) {
   } else {
     float responseTime = network.getResponseTime();
     if (responseTime > 0) {
-      display.showNumber(responseTime, 1);
-      //display.setSegments(0b01010100, 0);
+      if (lastPingCount != network.getPingCount()) {
+        display.setSegments(getPingAnimationByte(), 0);
+        lastPingCount = network.getPingCount();
+      }
+
+      if (lastResponseTime != responseTime) {
+        display.showNumber(responseTime, 1, 5, 1);
+        lastResponseTime = responseTime;
+      }
     }
   }
 
@@ -109,6 +136,7 @@ void saveConfigCallback () {
 
 void toggleDisplayInfo() {
   showClock = !showClock;
+  display.showString(showClock ? "THE CLOCK" : "PING-CHECK");
 }
 
 void toggleColorScheme() {
@@ -118,8 +146,8 @@ void toggleColorScheme() {
 
 void startTimers() {
   timer.every(500, measureResponseTask);
-  timer.every(200, updateDisplayTask);
-  timer.every(100, animationTask);
+  timer.every(100, updateDisplayTask);
+  timer.every(125, animationTask);
 }
 
 void toggleSetupMenu() {

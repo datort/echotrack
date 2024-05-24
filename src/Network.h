@@ -6,7 +6,7 @@
 #include <ESPping.h>
 #include "AsyncPing.h"
 
-#define PING_COUNT 3
+#define PING_COUNT 4
 #define PING_TIMEOUT 300
 
 class Network {
@@ -16,6 +16,7 @@ public:
   void setHostname(char* hostname);
   bool updateResponseTime();
   float getResponseTime() const;
+  uint8_t getPingCount() const;
 
 private:
   float _responseTime;
@@ -24,6 +25,7 @@ private:
   bool _packetLoss;
   AsyncPing _pingJob;
   bool _pingInProgress;
+  uint8_t _pingCount;
 
 };
 

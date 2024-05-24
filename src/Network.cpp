@@ -23,8 +23,9 @@ bool Network::updateResponseTime() {
   _packetLoss = false;
 
   _pingJob.on(true, [this](const AsyncPingResponse& response) {
-    IPAddress addr(response.addr);
+    //IPAddress addr(response.addr);
 
+    _pingCount += 1;
     if (response.answer) {
       _pong[response.icmp_seq - 1] = response.time;
       //Serial.printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%d ms\n", response.size, addr.toString().c_str(), response.icmp_seq, response.ttl, response.time);
@@ -46,6 +47,7 @@ bool Network::updateResponseTime() {
 
     _responseTime = (float)total/PING_COUNT;
     _pingInProgress = false;
+    _pingCount = 0;
 
     return true;
   });
@@ -61,4 +63,8 @@ void Network::setHostname(char* hostname) {
 
 float Network::getResponseTime() const {
   return _responseTime > 0 ? _responseTime : -1;
+}
+
+uint8_t Network::getPingCount() const {
+  return _pingCount;
 }
