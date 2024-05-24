@@ -65,6 +65,8 @@ bool showClock = CLOCK_ON_BY_DEFAULT;
 uint8_t lastPingCount;
 float lastResponseTime;
 
+String lastTime;
+
 bool measureResponseTask(void *) {
   if (showClock) return true;
 
@@ -93,8 +95,10 @@ int getPingAnimationByte() {
 bool updateDisplayTask(void *) {
   if (showClock) {
     String time = timeClient.getFormattedTime();
-    time.replace(":", "");
-    display.showString(time.c_str(), 6, 0, 0b01010000);
+    if (time != lastTime) {
+      time.replace(":", "");
+      display.showString(time.c_str(), 6, 0, 0b01010000);
+    }
   } else {
     float responseTime = network.getResponseTime();
     if (responseTime > 0) {
@@ -136,7 +140,7 @@ void saveConfigCallback () {
 
 void toggleDisplayInfo() {
   showClock = !showClock;
-  display.showString(showClock ? "THE CLOCK" : "PING-CHECK");
+  display.showString(showClock ? "CLOCK  " : "PING-CHECK");
 }
 
 void toggleColorScheme() {
@@ -146,11 +150,11 @@ void toggleColorScheme() {
 
 void startTimers() {
   timer.every(500, measureResponseTask);
-  timer.every(100, updateDisplayTask);
+  timer.every(25, updateDisplayTask);
   timer.every(125, animationTask);
 }
 
-void toggleSetupMenu() {
+/*void toggleSetupMenu() {
   if (!setupMenuStarted) {
     timer.cancel();
 
@@ -168,7 +172,7 @@ void toggleSetupMenu() {
     display.showString("DONE");
     startTimers();
   }
-}
+}*/
 
 void setup() {
   Serial.begin(9600);
