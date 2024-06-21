@@ -2,7 +2,7 @@
 
 ## What's this about
 
-This repository includes the software used in this [YouTube Video](https://www.youtube.com/watch?v=...). It's used to run a DIY project based on an ESP8266 (D1 Mini) to ping a user defined host for monitoring your internet connection quality. Information is displayed on a 7-segment 6-digit display and also visually presented as colorful warning from a WS2812b LED strip. Secondly it acts a clock with data from a NTP client. 
+This repository includes the software used in this [YouTube Video](https://www.youtube.com/watch?v=juFKVcngFrU). It's used to run a DIY project based on an ESP8266 (D1 Mini) to ping a user defined host for monitoring your internet connection quality. Information is displayed on a 7-segment 6-digit display and also visually presented as colorful warning from a WS2812b LED strip. Secondly it acts a clock with data from a NTP client. 
 
 
 ### License
